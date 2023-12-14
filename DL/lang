@@ -1,0 +1,141 @@
+!sudo apt-get install -y fonts-nanum
+!sudo fc-cache -fv
+!rm ~/.cache/matplotlib -rf
+
+# /usr/shre/fonts/truetype/nanum/NanumGothic.ttf
+
+data_url = 'https://raw.githubusercontent.com/e9t/nsmc/master/ratings.txt'
+
+!pip list | grep requests #패키지 설치 여부 확인
+
+import requests
+
+r = requests.get(data_url)
+
+r.status_code
+
+r.headers['content-type']
+
+r.encoding
+
+r.text[:100]
+
+r.json
+
+len(r.text.split('\n'))
+
+data_list = []
+for txt in r.text.split('\n')[1:1001]:
+  data_list.append(txt.split('\t')[1])
+
+data_list
+
+from sklearn.feature_extraction.text import CountVectorizer
+
+vectorizer = CountVectorizer(max_features=1000)
+DTM = vectorizer.fit_transform(data_list)
+vectorizer.get_feature_names_out()
+
+DTM.toarray()[0]
+
+list(DTM.sum(axis=0).flat)
+
+import pandas as pd
+
+dtm_df = pd.DataFrame(
+    {
+        'word': vectorizer.get_feature_names_out(),
+        'dtm_sum': DTM.sum(axis=0).flat
+    }
+)
+
+dtm_df
+
+dtm_df.sort_values('dtm_sum', ascending = False)
+
+!pip install kiwipiepy
+
+from kiwipiepy import Kiwi
+kiwi = Kiwi()
+result = kiwi.tokenize("형태소 분석 결과입니다")
+print(result)
+
+def extract_noun(txt):
+  result = kiwi.tokenize(txt)
+  for token in result:
+    if token.tag in ['NNG', 'NNP']:
+      yield token.form
+
+list(extract_noun('형태소 분석 결과 입니다.'))
+
+vectorizer = CountVectorizer(max_features=1000, tokenizer = extract_noun)
+DTM = vectorizer.fit_transform(data_list)
+
+dtm_df = pd.DataFrame(
+    {
+        'word': vectorizer.get_feature_names_out(),
+        'dtm_sum': DTM.sum(axis=0).flat
+    }
+)
+
+dtm_df.sort_values('dtm_sum', ascending = False)
+
+!pip list | grep wordCloud
+
+from wordcloud import WordCloud
+
+wc= WordCloud(
+    background_color="white",
+    width = 300,
+    height = 300,
+    max_words = 100,
+    font_path='NanumGothic'
+)
+
+import numpy as np
+import matplotlib.pyplot as plt
+
+dtm_df.head()
+
+wc_count = dtm_df.set_index('word')['dtm_sum'].to_dict()
+
+cloud = wc.fit_words(
+    wc_count
+)
+
+cloud.to_image()
+
+x, y = np.ogrid[:300, :300]
+mask = ( x - 150 ) ** 2 + ( y - 150 ) ** 2 > 130 **2
+mask = 255 * mask.astype(int)
+
+wc= WordCloud(
+    background_color="white",
+    width = 300,
+    height = 300,
+    max_words = 100,
+    font_path='NanumGothic',
+    mask = mask
+)
+
+cloud = wc.fit_words(
+    wc_count
+)
+
+import cv2
+
+icon = cv2.imread('mask.png')
+
+wc= WordCloud(
+    background_color="white",
+    width = 300,
+    height = 300,
+    max_words = 100,
+    font_path='NanumGothic',
+    mask = icon
+)
+
+cloud = wc.fit_words(
+    wc_count
+)
+cloud.to_image()
